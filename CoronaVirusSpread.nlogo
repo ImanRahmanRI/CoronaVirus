@@ -4,6 +4,8 @@ turtles-own
     sick-time            ;; how long, in weeks, the turtle has been infectious
     age                 ;; how many weeks old the turtle is
     mask?
+    test?
+    home?
 ]
 
 globals
@@ -34,11 +36,15 @@ to setup-turtles
       set size 1.5  ;; easier to see
       get-healthy
       set mask? False
+      set test? False
+      set home? False
   ]
   ask n-of infect-start turtles
     [ get-sick ]
-  ask n-of support-stock turtles
+  ask n-of (number-people * support-stock / 100) turtles
     [use-mask]
+  ask n-of (number-people * nHome / 100) turtles
+    [shome]
 end
 
 to get-sick ;; turtle procedure
@@ -65,11 +71,13 @@ to setup-constants
 end
 
 to go
+  ask n-of ((count turtles) * test-pack / 100) turtles
+    [test]
   ask turtles [
     get-older
     move
     if sick? [ recover-or-die ]
-    if sick? [ infect ]
+    if test? = False [if sick? [ infect ]]
   ]
   update-global-variables
   update-display
@@ -85,7 +93,7 @@ end
 to update-display
   ask turtles
     [ if shape != turtle-shape [ set shape turtle-shape ]
-      set color ifelse-value sick? [ifelse-value mask? [blue][ red ]] [ ifelse-value immune? [ grey ] [ green ] ] ]
+      set color ifelse-value sick? [ifelse-value test? [blue][ ifelse-value mask? [orange][red] ]] [ ifelse-value immune? [ grey ] [ green ] ] ]
 end
 
 ;;Turtle counting variables are advanced.
@@ -108,19 +116,19 @@ end
 ;; If a turtle is sick, it infects other turtles on the same patch.
 ;; Immune turtles don't get sick.
 to infect ;; turtle procedure
-  ifelse mask? [ask other turtles-here with [ not sick? and not immune? ]
-    [ ifelse mask? [if random-float 100 < infectiousness - support-effect - support-effect [ get-sick ]] [if random-float 100 < infectiousness - support-effect [ get-sick ]]]]
-  [ask other turtles-here with [ not sick? and not immune? ]
-    [ if random-float 100 < infectiousness [ get-sick ]]]
+  ask other turtles-here with [ not sick? and not immune? ]
+  [ifelse home? [ if random-float 100 < infectiousness - Home-effect [ get-sick ] ]
+  [ ifelse mask? [if random-float 100 < infectiousness - support-effect [ get-sick ]] [if random-float 100 < infectiousness [ get-sick ] ] ] ]
 end
 
 ;; Once the turtle has been sick long enough, it
 ;; either recovers (and becomes immune) or it dies.
 to recover-or-die ;; turtle procedure
   if sick-time > duration                        ;; If the turtle has survived past the virus' duration, then
-    [ ifelse random-float 100 < chance-recover   ;; either recover or die
-      [ become-immune ]
-      [ die ] ]
+    [ ifelse test? [ifelse random-float 100 < chance-recover + MedicalEffect ;; either recover or die
+      [ become-immune ] [ die ] ]
+      [ifelse random-float 100 < chance-recover   ;; either recover or die
+      [ become-immune ] [ die ]]]
 end
 
 to-report immune?
@@ -133,6 +141,14 @@ end
 
 to use-mask
   set mask? True
+end
+
+to test
+  set test? True
+end
+
+to shome
+  set home? True
 end
 
 ; Copyright 1998 Uri Wilensky.
@@ -189,7 +205,7 @@ chance-recover
 chance-recover
 0.0
 99.0
-80.0
+47.07
 1.0
 1
 %
@@ -204,7 +220,7 @@ infectiousness
 infectiousness
 0.0
 99.0
-80.0
+52.71
 1.0
 1
 %
@@ -246,25 +262,26 @@ NIL
 
 PLOT
 785
-55
+10
 1115
-245
+200
 Populations
 Day
 people
 0.0
-30.0
+60.0
 0.0
-50.0
-true
+5000.0
+false
 true
 "" ""
 PENS
 "sick" 1.0 0 -2674135 true "" "plot count turtles with [ sick? ]"
 "immune" 1.0 0 -7500403 true "" "plot count turtles with [ immune? ]"
 "healthy" 1.0 0 -10899396 true "" "plot count turtles with [ not sick?] "
-"mask sick" 1.0 0 -13345367 true "" "plot count turtles with [ mask? and sick?]"
+"mask sick" 1.0 0 -955883 true "" "plot count turtles with [ mask? and sick?]"
 "total" 1.0 0 -16777216 true "" "plot count turtles"
+"MedSup" 1.0 0 -13345367 true "" "plot count turtles with [sick? and test?]"
 
 SLIDER
 40
@@ -274,18 +291,18 @@ SLIDER
 number-people
 number-people
 10
-1000
-1000.0
+5000
+5000.0
 10
 1
 NIL
 HORIZONTAL
 
 MONITOR
-798
-8
-873
-53
+1125
+10
+1200
+55
 NIL
 %infected
 1
@@ -293,10 +310,10 @@ NIL
 11
 
 MONITOR
-875
-8
-949
-53
+1125
+60
+1199
+105
 NIL
 %immune
 1
@@ -304,10 +321,10 @@ NIL
 11
 
 MONITOR
-951
-9
-1025
-54
+1125
+110
+1200
+155
 week
 ticks / 7
 1
@@ -316,9 +333,9 @@ ticks / 7
 
 CHOOSER
 45
-365
+450
 190
-410
+495
 turtle-shape
 turtle-shape
 "person" "circle"
@@ -326,29 +343,29 @@ turtle-shape
 
 SLIDER
 40
-190
+225
 232
-223
+258
 support-stock
 support-stock
 0
-number-people
-680.0
+100
+0.0
 10
 1
-NIL
+%
 HORIZONTAL
 
 SLIDER
 40
-225
+190
 235
-258
+223
 Infect-start
 Infect-start
 0
 number-people
-5.0
+50.0
 1
 1
 NIL
@@ -363,11 +380,115 @@ Support-effect
 Support-effect
 0
 100
-24.0
+83.33
 1
 1
 %
 HORIZONTAL
+
+SLIDER
+40
+295
+235
+328
+test-pack
+test-pack
+0
+100
+10.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+40
+330
+235
+363
+MedicalEffect
+MedicalEffect
+0
+100
+47.07
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+40
+365
+235
+398
+nHome
+nHome
+0
+100
+0.0
+10
+1
+%
+HORIZONTAL
+
+SLIDER
+40
+400
+235
+433
+Home-effect
+Home-effect
+0
+100
+90.0
+5
+1
+%
+HORIZONTAL
+
+MONITOR
+785
+210
+860
+255
+Sick
+count turtles with [ sick? ]
+17
+1
+11
+
+MONITOR
+865
+210
+940
+255
+Healty
+count turtles with [ not sick? ]
+17
+1
+11
+
+MONITOR
+945
+210
+1020
+255
+MedSup
+count turtles with [ sick? and test? ]
+17
+1
+11
+
+MONITOR
+1025
+210
+1115
+255
+Test
+count turtles with [ test? ]
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
